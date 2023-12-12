@@ -1,0 +1,36 @@
+name: Integration Tests
+
+on: [push, pull_request]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    services:
+      smtp4dev:
+        image: rnwood/smtp4dev:v3
+        ports:
+          - 2525:25
+          - 8080:80
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Set up Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: '^1.16'  # Replace with your Go version
+
+    - name: Wait for smtp4dev to be ready
+      run: |
+        echo "Waiting for smtp4dev to be ready..."
+        until $(curl --output /dev/null --silent --head --fail http://localhost:8080); do
+          printf '.'
+          sleep 5
+        done
+
+    - name: Run tests
+      run: |
+        openssl genrsa -out private.pem 2048
+        export DIRECTEMAIL_PRIVATE_KEY=$(cat private.pem)
+        go test ./tests/send_email_test.go
